@@ -18,7 +18,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
   // 폼 상태
   const [weather, setWeather] = useState("맑음");
   const [cosmetics, setCosmetics] = useState([]);
-  const [trouble, setTrouble] = useState("없음");
+  const [trouble, setTrouble] = useState(false);
   const [stress, setStress] = useState(1);
   const [rating, setRating] = useState(5);
   const [inputCosmetic, setInputCosmetic] = useState("");
@@ -52,7 +52,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
 
       setWeather(data.weather || "맑음");
       setCosmetics(data.cosmetics || []);
-      setTrouble(data.trouble || "없음");
+      setTrouble(!!data.trouble);
       setStress(data.stress || 1);
       setRating(data.rating || 5);
     } else {
@@ -72,13 +72,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
       return alert("로그인이 필요합니다.");
     }
 
-    const logData = {
-      weather,
-      cosmetics,
-      trouble,
-      stress,
-      rating,
-    };
+    const logData = { weather, cosmetics, trouble, stress, rating };
 
     setIsSaving(true);
 

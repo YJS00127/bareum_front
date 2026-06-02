@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 export default function Main({ navigate, currentUser, setCurrentUser, users, setUsers }) {
   // 서브 페이지 관리: "MAIN_HOME", "ANALYZE_PAGE", "MY_INFO_PAGE"
   const [subPage, setSubPage] = useState("MAIN_HOME");
-  
+
   // 파일 상태 및 레퍼런스 (성분 분석용)
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -12,30 +12,24 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   const [diaryRecords, setDiaryRecords] = useState([]);
   const [isDiaryLoading, setIsDiaryLoading] = useState(false);
 
-  // 구글 비전 AI 및 백엔드 AI 분류 모델 연동 상태
-  const [isVisionLoading, setIsVisionLoading] = useState(false);
-  const [visionDetectedText, setVisionDetectedText] = useState("");
-  
-  // 🔮 백엔드 AI 분류 모델의 종합 결과를 담을 상태창
-  const [aiTotalAnalysis, setAiTotalAnalysis] = useState(""); // "RECOMMEND" 또는 "NOT_RECOMMEND" / "WARN"
-  const [aiMessage, setAiMessage] = useState("");             // AI가 조합을 보고 판단한 피드백 문구
-  const [visionAnalysisResult, setVisionAnalysisResult] = useState([]); // 분류가 완료된 성분별 개별 리스트
+  // 성분 분석 결과
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
+
+  const [productStatus, setProductStatus] = useState("");
+  const [finalExplain, setFinalExplain] = useState("");
 
   // 내 정보 관리용 비밀번호 수정 상태
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
-  // 🔌 [백엔드 통신 에러 방어] 서버가 꺼져있을 때 화면이 멈추는 것을 막기 위한 상태
+  // 🔌 [백엔드 통신 에러 방어]
   const [backendError, setBackendError] = useState(null);
-
-  // 🔑 구글 클라우드 API 키
-  const GOOGLE_VISION_API_KEY = "AIzaSyBNnbyvLvxbirR4f4CFPkLebVr5thz7ipg";
 
   // 🔗 [백엔드 다이어리 기록 동기화]
   useEffect(() => {
     const fetchDiaryCount = async () => {
       if (!currentUser || !currentUser.userId) return;
-      
+
       setIsDiaryLoading(true);
       setBackendError(null);
 
@@ -60,7 +54,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       } catch (error) {
         console.error("다이어리 데이터를 가져오는 데 실패했습니다:", error);
         setBackendError(error.message);
-        
+
         if (currentUser && Array.isArray(currentUser.records)) {
           setDiaryRecords(currentUser.records);
         }
@@ -68,7 +62,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
         setIsDiaryLoading(false);
       }
     };
-    
+
     fetchDiaryCount();
   }, [currentUser, subPage]);
 
@@ -76,10 +70,8 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      setVisionDetectedText("");
-      setAiTotalAnalysis("");
-      setAiMessage("");
-      setVisionAnalysisResult([]);
+      setProductStatus("");
+      setFinalExplain("");
     }
   };
 
@@ -87,107 +79,46 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // 🌐 [AI 연동] 백엔드 서버와 진짜로 통신하는 실전 코드
+  // 🌐 [AI 연동] 성분 분석 (횟수 카운트 로직 삭제됨)
   const handleGoogleVisionAnalysis = async () => {
-    if (!selectedFile) return alert("먼저 성분표 사진을 첨부해 주세요!");
-    setIsVisionLoading(true);
-    setBackendError(null); // 에러 초기화
+    if (!selectedFile) {
+      alert("먼저 성분표 사진을 첨부해 주세요!");
+      return;
+    }
+
+    setIsAnalysisLoading(true);
+    setBackendError(null);
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(selectedFile);
-      
-      reader.onloadend = async () => {
-        const base64Image = reader.result.split(",")[1];
-        const requestBody = {
-          requests: [
-            {
-              image: { content: base64Image },
-              features: [{ type: "TEXT_DETECTION" }]
-            }
-          ]
-        };
+      const formData = new FormData();
 
-        // 1. 구글 비전 API 통신 (사진 속 텍스트 추출)
-        const visionResponse = await fetch(
-          `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
-          }
-        );
+      formData.append("userId", currentUser.userId);
+      formData.append("image", selectedFile);
 
-        const visionData = await visionResponse.json();
-
-        if (!visionResponse.ok || visionData.error) {
-          throw new Error(visionData.error?.message || "구글 플랫폼 통신 오류");
-        }
-
-        const detectedText = visionData.responses[0]?.textAnnotations[0]?.description || "";
-        if (!detectedText) {
-          alert("사진에서 글자를 읽어내지 못했습니다. 화질을 확인해 주세요.");
-          setIsVisionLoading(false);
-          return;
-        }
-
-        // 화면에 추출된 텍스트 일단 기록
-        setVisionDetectedText(detectedText);
-
-        // 2. 텍스트를 쉼표(,)나 줄바꿈(\n) 기준으로 쪼개서 깔끔한 '배열'로 가공합니다.
-        const ingredientsArray = detectedText
-          .split(/,|\n/)
-          .map(item => item.trim())
-          .filter(item => item.length > 0);
-
-        // 3. 백엔드 서버로 보낼 데이터 상자 세팅 (성분 배열 + 유저 피부 타입)
-        const backendPayload = {
-          ingredients: ingredientsArray,
-          skinType: currentUser?.skinType // 👈 오직 실제 로그인한 유저의 진짜 피부 타입만 전송!
-        };
-
-        // 4. 실제 우리 백엔드 AI 분석 API 호출
-        const backendResponse = await fetch("http://localhost:8080/api/analysis/predict", {
+      const response = await fetch(
+        "http://localhost:8080/api/analysis",
+        {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(backendPayload)
-        });
-
-        if (!backendResponse.ok) {
-          throw new Error(`백엔드 서버 에러 (상태코드: ${backendResponse.status})`);
+          body: formData
         }
+      );
 
-        // 5. 백엔드가 분석해서 돌려준 최종 결과 받기
-        const aiResult = await backendResponse.json();
+      if (!response.ok) {
+        throw new Error(`서버 오류 (${response.status})`);
+      }
 
-        // 6. 받아온 결과를 화면 State(상태)에 안전하게 바인딩
-        const totalAnalysis = aiResult.totalAnalysis || aiResult.total_analysis;
-        const aiMessage = aiResult.aiMessage || aiResult.ai_message;
-        const ingredientsList = aiResult.ingredientsList || aiResult.ingredients_list || [];
+      const data = await response.json();
 
-        setAiTotalAnalysis(totalAnalysis); 
-        setAiMessage(aiMessage);           
-        setVisionAnalysisResult(ingredientsList); 
+      setProductStatus(data.productStatus || "");
+      setFinalExplain(data.finalExplain || "");
 
-        // 7. 성공 시 마이페이지용 분석 횟수 카운트 1 증가
-        const currentCount = currentUser?.analysisCount !== undefined ? currentUser.analysisCount : 0;
-        const updatedUser = { ...currentUser, analysisCount: currentCount + 1 };
-        setCurrentUser(updatedUser);
-        
-        if (Array.isArray(users)) {
-          setUsers(users.map(u => u.email === currentUser.email ? updatedUser : u));
-        }
-
-        alert("🎉 AI 성분 분석이 성공적으로 완료되었습니다!");
-        setIsVisionLoading(false);
-      };
+      alert("성분 분석이 완료되었습니다.");
     } catch (error) {
-      console.error("연동 에러 발생:", error);
+      console.error(error);
       setBackendError(error.message);
-      alert(`백엔드 연동 실패: ${error.message}\n서버가 켜져 있는지 확인해 주세요.`);
-      setIsVisionLoading(false);
+      alert(`분석 실패 : ${error.message}`);
+    } finally {
+      setIsAnalysisLoading(false);
     }
   };
 
@@ -234,8 +165,8 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>🍀 My Skin Lab 메인</h3>
-        <span 
-          onClick={() => setSubPage("MY_INFO_PAGE")} 
+        <span
+          onClick={() => setSubPage("MY_INFO_PAGE")}
           style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b", cursor: "pointer", textDecoration: "underline" }}
         >
           {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "13px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
@@ -249,7 +180,6 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       )}
 
       <div style={{ backgroundColor: "#f8fafc", padding: "28px", borderRadius: "24px", border: "1px solid #e2e8f0", marginBottom: "32px" }}>
-        <span style={{ fontSize: "15px", color: "#64748b", fontWeight: "600", display: "block", marginBottom: "6px" }}></span>
         <h2 style={{ margin: "0 0 16px 0", fontSize: "26px", fontWeight: "800", color: "#1e293b" }}>
           {currentUser?.nickname || "사용자"}님의 피부 연구소
         </h2>
@@ -262,7 +192,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        
+
         <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("DIARY")}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "12px" }}>
             <div style={{ fontSize: "32px", backgroundColor: "#f0fdf4", width: "60px", height: "60px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>📅</div>
@@ -323,9 +253,9 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       <div style={{ marginBottom: "32px" }}>
         <h4 style={{ margin: "0 0 16px 0", color: "#475569", fontSize: "15px", fontWeight: "600" }}>화장품 성분 스캔</h4>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} />
-        
+
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", backgroundColor: "#f8fafc", padding: "14px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-          <button type="button" onClick={onAttachButtonClick} disabled={isVisionLoading} style={{ padding: "10px 16px", backgroundColor: "#4C9A8E", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", color: "white", cursor: "pointer" }}>
+          <button type="button" onClick={onAttachButtonClick} disabled={isAnalysisLoading} style={{ padding: "10px 16px", backgroundColor: "#4C9A8E", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", color: "white", cursor: "pointer" }}>
             📷 사진 첨부하기
           </button>
           <span style={{ fontSize: "13.5px", color: selectedFile ? "#1e293b" : "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
@@ -333,51 +263,21 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           </span>
         </div>
 
-        <button onClick={handleGoogleVisionAnalysis} disabled={!selectedFile || isVisionLoading} style={{ width: "100%", padding: "16px", backgroundColor: (selectedFile && !isVisionLoading) ? "#4C9A8E" : "#cbd5e1", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: (selectedFile && !isVisionLoading) ? "pointer" : "not-allowed", fontSize: "16px", transition: "all 0.2s" }}>
-          {isVisionLoading ? "⏳ AI 모델이 조합 분석 및 분류 중..." : "분석 결과 보기"}
+        <button onClick={handleGoogleVisionAnalysis} disabled={!selectedFile || isAnalysisLoading} style={{ width: "100%", padding: "16px", backgroundColor: (selectedFile && !isAnalysisLoading) ? "#4C9A8E" : "#cbd5e1", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: (selectedFile && !isAnalysisLoading) ? "pointer" : "not-allowed", fontSize: "16px", transition: "all 0.2s" }}>
+          {isAnalysisLoading ? "⏳ 성분 분석 중..." : "분석 결과 보기"}
         </button>
       </div>
 
-      {aiTotalAnalysis && (
-        <div style={{
-          padding: "20px",
-          borderRadius: "16px",
-          marginBottom: "24px",
-          border: "1px solid",
-          backgroundColor: aiTotalAnalysis === "RECOMMEND" ? "rgba(76, 154, 142, 0.1)" : "#fff5f5",
-          borderColor: aiTotalAnalysis === "RECOMMEND" ? "rgba(76, 154, 142, 0.3)" : "#fecaca",
-          color: aiTotalAnalysis === "RECOMMEND" ? "#1b4d47" : "#991b1b"
-        }}>
-          <span style={{ fontSize: "11px", fontWeight: "bold", color: "#94a3b8", display: "block", marginBottom: "4px", letterSpacing: "1px" }}>MY SKIN LAB 자체 AI 종합 진단</span>
-          <h3 style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "800" }}>
-            {aiTotalAnalysis === "RECOMMEND" ? "👍 이 화장품을 추천합니다!" : "⚠️ 사용 전 주의가 필요합니다"}
-          </h3>
-          <p style={{ margin: 0, fontSize: "13.5px", color: "#475569", lineHeight: "1.5" }}>{aiMessage}</p>
-        </div>
-      )}
-
-      {visionAnalysisResult.length > 0 && (
-        <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "14px" }}>
-          <h4 style={{ color: "#4C9A8E", fontSize: "15px", fontWeight: "700" }}>🔬 검출된 성분 정밀 판독 결과</h4>
-          {visionAnalysisResult.map((res, index) => (
-            <div key={index} style={{ padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", borderLeft: `5px solid ${res.label === "GOOD" ? "#4C9A8E" : res.label === "CAUTION" ? "#ef4444" : "#64748b"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong style={{ fontSize: "14.5px", color: "#1e293b" }}>포함 성분 확인: [{res.ingredient}]</strong>
-                <span style={{ fontSize: "12px", fontWeight: "bold", color: res.label === "GOOD" ? "#0f766e" : res.label === "CAUTION" ? "#b91c1c" : "#475569" }}>
-                  [{res.label === "GOOD" ? "추천" : res.label === "CAUTION" ? "주의" : "보통"}]
-                </span>
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop: "12px", backgroundColor: "#f8fafc", padding: "14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "bold" }}>[참고] OCR 추출 원본 데이터 요약</span>
-            <p style={{ margin: "6px 0 0 0", fontSize: "12.5px", color: "#64748b", whiteSpace: "pre-wrap", lineHeight: "1.4" }}>{visionDetectedText}</p>
-          </div>
+      {productStatus && (
+        <div style={{ padding: "20px", borderRadius: "16px", marginBottom: "24px", border: "1px solid #e2e8f0", backgroundColor: productStatus === "normal" ? "#ecfdf5" : "#fef2f2" }}>
+          <h3 style={{ marginBottom: "10px" }}>분석 결과 : {productStatus}</h3>
+          <p style={{ margin: 0 }}>{finalExplain}</p>
         </div>
       )}
 
       <div style={{ textAlign: "center", marginTop: "32px" }}>
-        <button onClick={() => { setSelectedFile(null); setVisionDetectedText(""); setAiTotalAnalysis(""); setAiMessage(""); setVisionAnalysisResult([]); setSubPage("MAIN_HOME"); }} style={{ background: "none", border: "none", color: "#64748b", fontSize: "14px", fontWeight: "600", cursor: "pointer", textDecoration: "underline" }}>뒤로가기</button>
+        <button onClick={() => { setSelectedFile(null); setProductStatus(""); setFinalExplain(""); setSubPage("MAIN_HOME"); }}
+          style={{ background: "none", border: "none", color: "#64748b", fontSize: "14px", fontWeight: "600", cursor: "pointer", textDecoration: "underline" }}>뒤로가기</button>
       </div>
     </div>
   );
@@ -424,7 +324,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   return (
     <div style={{ maxWidth: "1200px", margin: "40px auto", padding: "0 24px", boxSizing: "border-box" }}>
       <div style={{ display: "flex", gap: "32px", alignItems: "flex-start" }}>
-        
+
         {/* [왼쪽 본문 영역] */}
         <div style={{ flex: 2.2, backgroundColor: "#ffffff", padding: "28px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9" }}>
           {subPage === "MAIN_HOME" && renderMainHome()}
@@ -433,48 +333,44 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
         </div>
 
         {/* [우측 사이드바] */}
-        <div style={{ flex: 1, backgroundColor: "#ffffff", padding: "28px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9", position: "sticky", top: "40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "16px" }}>
-            <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#e2f5f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>👤</div>
-            <div>
-              <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname || "사용자"} 님</h4>
-              <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>
-                {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
-              </span>
-            </div>
-          </div>
+<div style={{ flex: 1, backgroundColor: "#ffffff", padding: "28px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9", position: "sticky", top: "40px" }}>
+  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "16px" }}>
+    <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#e2f5f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>👤</div>
+    <div>
+      <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname || "사용자"} 님</h4>
+      <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>
+        {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
+      </span>
+    </div>
+  </div>
 
-          <h4 style={{ fontSize: "13.5px", color: "#94a3b8", fontWeight: "600", margin: "0 0 14px 0", letterSpacing: "0.5px" }}>LAB 피부 통계 리포트</h4>
-          
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
-              <span style={{ fontSize: "14px", color: "#475569" }}>🟢 피부 타입</span>
-              <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f766e" }}>
-                {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
-              </span>
-            </div>
+  <h4 style={{ fontSize: "13.5px", color: "#94a3b8", fontWeight: "600", margin: "0 0 14px 0", letterSpacing: "0.5px" }}>LAB 피부 통계 리포트</h4>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
-              <span style={{ fontSize: "14px", color: "#475569" }}>📊 성분 분석 횟수</span>
-              <span style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
-                {currentUser?.analysisCount !== undefined ? currentUser.analysisCount : 0}회
-              </span>
-            </div>
+  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    {/* 피부 타입 항목 유지 */}
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
+      <span style={{ fontSize: "14px", color: "#475569" }}>🟢 피부 타입</span>
+      <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f766e" }}>
+        {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
+      </span>
+    </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
-              <span style={{ fontSize: "14px", color: "#475569" }}>🎨 피부 기록 일차</span>
-              <span style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
-                {isDiaryLoading ? "..." : `${diaryRecords ? diaryRecords.length : 0}일차`}
-              </span>
-            </div>
-          </div>
+    {/* [삭제됨] 성분 분석 횟수 항목을 제거하고 피부 기록 일차 항목을 바로 올렸습니다 */}
 
-          <div style={{ marginTop: "20px", backgroundColor: "#e2f5f1", padding: "14px", borderRadius: "12px", textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: "12.5px", color: "#0f766e", fontWeight: "600", lineHeight: "1.4", whiteSpace: "pre-wrap" }}>
-              {backendError ? "💡 서버 연결 대기 중입니다.\n기존 일지를 관리하세요!" : "💡 맞춤 데이터 기반으로\n화장품 성분을 분석 중입니다!"}
-            </p>
-          </div>
-        </div>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
+      <span style={{ fontSize: "14px", color: "#475569" }}>🎨 피부 기록 일차</span>
+      <span style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
+        {isDiaryLoading ? "..." : `${diaryRecords ? diaryRecords.length : 0}일차`}
+      </span>
+    </div>
+  </div>
+
+  <div style={{ marginTop: "20px", backgroundColor: "#e2f5f1", padding: "14px", borderRadius: "12px", textAlign: "center" }}>
+    <p style={{ margin: 0, fontSize: "12px", color: "#0f766e", fontWeight: "600", lineHeight: "1.4", whiteSpace: "pre-wrap" }}>
+      {backendError ? "💡 서버 연결 대기 중입니다.\n기존 일지를 관리하세요!" : "💡 맞춤 데이터 기반으로\n화장품 성분을 분석 중입니다!"}
+    </p>
+  </div>
+</div>
 
       </div>
     </div>

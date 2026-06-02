@@ -251,10 +251,7 @@ export default function Signup({
           }}
         >
           <input
-            type={
-              showCheck
-                ? "text"
-                : "password"
+            type={showCheck? "text": "password"
             }
             placeholder="비밀번호 확인"
             value={
@@ -300,9 +297,7 @@ export default function Signup({
         <button
           type="submit"
           style={{
-            backgroundColor: "#3a7b7e", color: "white", padding: "12px",
-            border: "none", borderRadius: "6px",
-            cursor: "pointer", fontWeight: "bold",
+            backgroundColor: "#3a7b7e", color: "white", padding: "12px", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold",
             marginTop: "10px",
           }}
         >

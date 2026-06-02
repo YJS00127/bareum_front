@@ -1,5 +1,4 @@
 import React, { useState, useContext, useEffect } from "react";
-import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -51,7 +50,6 @@ export default function App() {
   };
 
   if (isLoading) {
-    
     return (
       <div
         style={{
@@ -69,44 +67,20 @@ export default function App() {
   }
 
   return (
-    <GoogleOAuthProvider clientId="네_구글_CLIENT_ID">
+    <>
       <div
-  style={{
-    display: "flex",
-    gap: "10px",
-    marginBottom: "20px",
-  }}
->
-  <button
-    onClick={() => navigate("LOGIN")}
-  >
-    로그인
-  </button>
-
-  <button
-    onClick={() => navigate("SIGNUP")}
-  >
-    회원가입
-  </button>
-
-  <button
-    onClick={() => navigate("SURVEY")}
-  >
-    설문조사
-  </button>
-
-  <button
-    onClick={() => navigate("MAIN")}
-  >
-    메인
-  </button>
-
-  <button
-    onClick={() => navigate("DIARY")}
-  >
-    다이어리
-  </button>
-</div>
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "20px",
+        }}
+      >
+        <button onClick={() => navigate("LOGIN")}>로그인</button>
+        <button onClick={() => navigate("SIGNUP")}>회원가입</button>
+        <button onClick={() => navigate("SURVEY")}>설문조사</button>
+        <button onClick={() => navigate("MAIN")}>메인</button>
+        <button onClick={() => navigate("DIARY")}>다이어리</button>
+      </div>
       <div
         style={{
           display: "flex",
@@ -125,26 +99,17 @@ export default function App() {
             backgroundColor: "white",
             borderRadius: "28px",
             padding: "40px",
-            boxShadow:
-              "0 20px 25px -5px rgba(0,0,0,0.1)",
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
             boxSizing: "border-box",
           }}
         >
-          {currentPage === "LOGIN" && (
-            <Login navigate={navigate} />
-          )}
+          {currentPage === "LOGIN" && <Login navigate={navigate} />}
 
-          {currentPage === "SIGNUP" && (
-            <Signup navigate={navigate} />
-          )}
+          {currentPage === "SIGNUP" && <Signup navigate={navigate} />}
 
-          {currentPage === "SURVEY" && (
-            <Survey navigate={navigate} />
-          )}
+          {currentPage === "SURVEY" && <Survey navigate={navigate} />}
 
-          {currentPage === "MAIN" && (
-            <Main navigate={navigate} />
-          )}
+          {currentPage === "MAIN" && <Main navigate={navigate} />}
 
           {currentPage === "DIARY" && (
             <Diary
@@ -155,6 +120,6 @@ export default function App() {
           )}
         </div>
       </div>
-    </GoogleOAuthProvider>
+    </>
   );
 }
