@@ -228,16 +228,13 @@ export default function Login({
             {
               method:
                 "POST",
-
               headers: {
                 "Content-Type":
                   "application/json",
               },
-
               body: JSON.stringify(
                 {
-                  token:
-                    socialTokenOrCode,
+                  token: socialTokenOrCode,
                 }
               ),
             }
@@ -252,7 +249,6 @@ export default function Login({
           setCurrentUser(
             data.user
           );
-
           localStorage.setItem(
             "current_user",
             JSON.stringify(
@@ -263,28 +259,16 @@ export default function Login({
           alert(
             `🔓 ${platform} 로그인 성공!`
           );
-
-          if (
-            !data.user
-              .skinType
-          ) {
-            navigate(
-              "SURVEY"
-            );
+          if (!data.user.skinType) {
+            navigate("SURVEY");
           } else {
-            navigate(
-              "MAIN"
-            );
+            navigate("MAIN");
           }
         } else {
-          alert(
-            `${platform} 로그인 실패`
-          );
+          alert(`${platform} 로그인 실패`);
         }
       } catch (error) {
-        alert(
-          "소셜 로그인 서버 오류"
-        );
+        alert("소셜 로그인 서버 오류");
       } finally {
         setIsSocialLoading(
           false

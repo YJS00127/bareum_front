@@ -17,7 +17,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   const [visionDetectedText, setVisionDetectedText] = useState("");
   
   // 🔮 백엔드 AI 분류 모델의 종합 결과를 담을 상태창
-  const [aiTotalAnalysis, setAiTotalAnalysis] = useState(""); // "RECOMMEND" 또는 "NOT_RECOMMEND"
+  const [aiTotalAnalysis, setAiTotalAnalysis] = useState(""); // "RECOMMEND" 또는 "NOT_RECOMMEND" / "WARN"
   const [aiMessage, setAiMessage] = useState("");             // AI가 조합을 보고 판단한 피드백 문구
   const [visionAnalysisResult, setVisionAnalysisResult] = useState([]); // 분류가 완료된 성분별 개별 리스트
 
@@ -87,11 +87,11 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // 🧪 [AI 연동] 구글 클라우드 비전 텍스트 추출 후 우리 백엔드 AI 분류 모델 연동 함수
+  // 🌐 [AI 연동] 백엔드 서버와 진짜로 통신하는 실전 코드
   const handleGoogleVisionAnalysis = async () => {
     if (!selectedFile) return alert("먼저 성분표 사진을 첨부해 주세요!");
     setIsVisionLoading(true);
-    setBackendError(null);
+    setBackendError(null); // 에러 초기화
 
     try {
       const reader = new FileReader();
@@ -108,7 +108,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           ]
         };
 
-        // Step 1: 구글 비전 API 통신 수행
+        // 1. 구글 비전 API 통신 (사진 속 텍스트 추출)
         const visionResponse = await fetch(
           `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
           {
@@ -126,53 +126,67 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
 
         const detectedText = visionData.responses[0]?.textAnnotations[0]?.description || "";
         if (!detectedText) {
-          alert("사진에서 글자를 읽어내지 못했습니다. 다시 테스트해 주세요.");
+          alert("사진에서 글자를 읽어내지 못했습니다. 화질을 확인해 주세요.");
           setIsVisionLoading(false);
           return;
         }
 
+        // 화면에 추출된 텍스트 일단 기록
         setVisionDetectedText(detectedText);
 
-        // 🔌 Step 2: 추출한 전체 텍스트와 로그인한 유저의 피부 타입을 우리 백엔드 AI 분류 API로 전송
-        const backendAiResponse = await fetch("http://localhost:8080/api/analysis/predict", {
+        // 2. 텍스트를 쉼표(,)나 줄바꿈(\n) 기준으로 쪼개서 깔끔한 '배열'로 가공합니다.
+        const ingredientsArray = detectedText
+          .split(/,|\n/)
+          .map(item => item.trim())
+          .filter(item => item.length > 0);
+
+        // 3. 백엔드 서버로 보낼 데이터 상자 세팅 (성분 배열 + 유저 피부 타입)
+        const backendPayload = {
+          ingredients: ingredientsArray,
+          skinType: currentUser?.skinType // 👈 오직 실제 로그인한 유저의 진짜 피부 타입만 전송!
+        };
+
+        // 4. 실제 우리 백엔드 AI 분석 API 호출
+        const backendResponse = await fetch("http://localhost:8080/api/analysis/predict", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            detectedText: detectedText,
-            skinType: currentUser?.skinType || "복합성"
-          })
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(backendPayload)
         });
 
-        if (!backendAiResponse.ok) {
-          throw new Error("우리 백엔드 AI 모델 서버가 응답하지 않거나 꺼져 있습니다.");
+        if (!backendResponse.ok) {
+          throw new Error(`백엔드 서버 에러 (상태코드: ${backendResponse.status})`);
         }
 
-        const aiResult = await backendAiResponse.json();
+        // 5. 백엔드가 분석해서 돌려준 최종 결과 받기
+        const aiResult = await backendResponse.json();
+
+        // 6. 받아온 결과를 화면 State(상태)에 안전하게 바인딩
+        const totalAnalysis = aiResult.totalAnalysis || aiResult.total_analysis;
+        const aiMessage = aiResult.aiMessage || aiResult.ai_message;
+        const ingredientsList = aiResult.ingredientsList || aiResult.ingredients_list || [];
+
+        setAiTotalAnalysis(totalAnalysis); 
+        setAiMessage(aiMessage);           
+        setVisionAnalysisResult(ingredientsList); 
+
+        // 7. 성공 시 마이페이지용 분석 횟수 카운트 1 증가
+        const currentCount = currentUser?.analysisCount !== undefined ? currentUser.analysisCount : 0;
+        const updatedUser = { ...currentUser, analysisCount: currentCount + 1 };
+        setCurrentUser(updatedUser);
         
-        // 백엔드 머신러닝 모델이 계산하여 보내준 원본 데이터를 리액트 상태창에 주입
-        if (aiResult && aiResult.success) {
-          setAiTotalAnalysis(aiResult.total_analysis);       // "RECOMMEND" / "NOT_RECOMMEND" / "WARN"
-          setAiMessage(aiResult.ai_message);                 // AI의 친절한 종합 조언 요약 문구
-          setVisionAnalysisResult(aiResult.ingredients_results); // 개별 성분 분석 데이터 리스트 구조
-          
-          // 🔗 분석 횟수 카운트 상태 업데이트 호환성 유지
-          const currentCount = currentUser?.analysisCount !== undefined ? currentUser.analysisCount : 0;
-          const updatedUser = { ...currentUser, analysisCount: currentCount + 1 };
-          setCurrentUser(updatedUser);
-          if (Array.isArray(users)) {
-            setUsers(users.map(u => u.email === currentUser.email ? updatedUser : u));
-          }
-          alert("🎉 자체 AI 분류 모델 종합 진단이 완료되었습니다!");
-        } else {
-          alert(`분석 실패: ${aiResult.message}`);
+        if (Array.isArray(users)) {
+          setUsers(users.map(u => u.email === currentUser.email ? updatedUser : u));
         }
-        
+
+        alert("🎉 AI 성분 분석이 성공적으로 완료되었습니다!");
         setIsVisionLoading(false);
       };
     } catch (error) {
-      console.error(error);
+      console.error("연동 에러 발생:", error);
       setBackendError(error.message);
-      alert(`에러 발생: ${error.message}`);
+      alert(`백엔드 연동 실패: ${error.message}\n서버가 켜져 있는지 확인해 주세요.`);
       setIsVisionLoading(false);
     }
   };
@@ -224,7 +238,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           onClick={() => setSubPage("MY_INFO_PAGE")} 
           style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b", cursor: "pointer", textDecoration: "underline" }}
         >
-          {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "13px" }}>({currentUser?.skinType || "복합성 피부"})</span>
+          {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "13px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
         </span>
       </div>
 
@@ -241,7 +255,9 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
         </h2>
         <div style={{ backgroundColor: "#e2f5f1", border: "2px solid #4C9A8E", padding: "16px 20px", borderRadius: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "#0f766e", fontSize: "15px", fontWeight: "700" }}>진단된 피부 타입</span>
-          <span style={{ color: "#4C9A8E", fontSize: "20px", fontWeight: "900" }}>{currentUser?.skinType || "복합성 피부"}</span>
+          <span style={{ color: "#4C9A8E", fontSize: "20px", fontWeight: "900" }}>
+            {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 필요 📋"}
+          </span>
         </div>
       </div>
 
@@ -300,7 +316,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "20px", fontWeight: "700" }}>🧪 성분 분석하기</h3>
         <span style={{ fontSize: "14px", fontWeight: "bold", color: "#1e293b" }}>
-          {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "12px" }}>({currentUser?.skinType || "미정"})</span>
+          {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "12px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
         </span>
       </div>
 
@@ -322,7 +338,6 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
         </button>
       </div>
 
-      {/* 🟢 AI 분류 학습 결과 배너 카드 */}
       {aiTotalAnalysis && (
         <div style={{
           padding: "20px",
@@ -341,7 +356,6 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
         </div>
       )}
 
-      {/* 성분별 개별 라벨 매칭 결과 출력 영역 */}
       {visionAnalysisResult.length > 0 && (
         <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "14px" }}>
           <h4 style={{ color: "#4C9A8E", fontSize: "15px", fontWeight: "700" }}>🔬 검출된 성분 정밀 판독 결과</h4>
@@ -380,7 +394,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       <div style={{ backgroundColor: "#f8fafc", padding: "20px", borderRadius: "14px", border: "1px solid #e2e8f0", marginBottom: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <div style={{ fontSize: "14px", color: "#475569" }}><b>아이디 :</b> {currentUser?.userId}</div>
         <div style={{ fontSize: "14px", color: "#475569" }}><b>닉네임 :</b> {currentUser?.nickname}</div>
-        <div style={{ fontSize: "14px", color: "#475569" }}><b>결정된 피부 타입 :</b> <span style={{ color: "#4C9A8E", fontWeight: "bold" }}>{currentUser?.skinType || "복합성 피부"}</span></div>
+        <div style={{ fontSize: "14px", color: "#475569" }}><b>결정된 피부 타입 :</b> <span style={{ color: "#4C9A8E", fontWeight: "bold" }}>{currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}</span></div>
       </div>
 
       <div style={{ border: "1px solid #e2e8f0", padding: "16px", borderRadius: "12px", marginBottom: "24px" }}>
@@ -424,7 +438,9 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
             <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#e2f5f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>👤</div>
             <div>
               <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname || "사용자"} 님</h4>
-              <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>{currentUser?.skinType || "복합성 피부"}</span>
+              <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>
+                {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
+              </span>
             </div>
           </div>
 
@@ -433,7 +449,9 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
               <span style={{ fontSize: "14px", color: "#475569" }}>🟢 피부 타입</span>
-              <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f766e" }}>{currentUser?.skinType || "미정"}</span>
+              <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f766e" }}>
+                {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
+              </span>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
@@ -462,4 +480,3 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     </div>
   );
 }
-

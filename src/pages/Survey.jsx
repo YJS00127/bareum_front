@@ -68,25 +68,20 @@ export default function Survey({ navigate }) {
       counts[ans]++;
     });
 
-    let calculatedType = "중성 피부";
+    // -------------------------------------------------------------
+    // ✨ [수정 구간] '중성' 제거 및 백엔드 호환용 [건성, 지성, 복합성] 매칭 로직
+    // -------------------------------------------------------------
+    let calculatedType = "복합성"; // 기본값 세팅 (점수가 완전히 동점일 때를 대비한 예외 처리)
 
-    if (
-      counts[0] > counts[1] &&
-      counts[0] > counts[2]
-    ) {
-      calculatedType = "건성 피부";
-    }
-    else if (
-      counts[1] > counts[0] &&
-      counts[1] > counts[2]
-    ) {
-      calculatedType = "복합성 피부";
-    }
-    else if (
-      counts[2] > counts[0] &&
-      counts[2] > counts[1]
-    ) {
-      calculatedType = "지성 피부";
+    if (counts[0] > counts[1] && counts[0] > counts[2]) {
+      calculatedType = "건성";
+    } 
+    else if (counts[2] > counts[0] && counts[2] > counts[1]) {
+      calculatedType = "지성";
+    } 
+    else {
+      // 2번 선택지(복합성)가 가장 많거나, 모든 점수가 똑같이 비기는 경우 '복합성'으로 결정
+      calculatedType = "복합성";
     }
 
     setFinalSkinType(calculatedType);
@@ -102,7 +97,7 @@ export default function Survey({ navigate }) {
           },
           body: JSON.stringify({
             userId: currentUser.userId,
-            skinType: calculatedType,
+            skinType: calculatedType, // 백엔드로 "건성", "지성", "복합성" 중 하나가 날아갑니다.
           }),
         }
       );
