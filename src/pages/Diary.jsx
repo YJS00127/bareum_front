@@ -9,7 +9,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
 
   // 현재 달력의 연도와 월 상태
   const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(5);
+  const [currentMonth, setCurrentMonth] = useState(6);
 
   // 선택 날짜 및 상세창 상태
   const [selectedDate, setSelectedDate] = useState("");

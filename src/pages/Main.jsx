@@ -79,7 +79,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // 🌐 [AI 연동] 성분 분석 (횟수 카운트 로직 삭제됨)
+  // 🌐 [AI 연동] 성분 분석
   const handleGoogleVisionAnalysis = async () => {
     if (!selectedFile) {
       alert("먼저 성분표 사진을 첨부해 주세요!");
@@ -164,7 +164,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   const renderMainHome = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
-        <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>🍀 My Skin Lab 메인</h3>
+        <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>🍀 bareum</h3>
         <span
           onClick={() => setSubPage("MY_INFO_PAGE")}
           style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b", cursor: "pointer", textDecoration: "underline" }}
@@ -263,7 +263,8 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           </span>
         </div>
 
-        <button onClick={handleGoogleVisionAnalysis} disabled={!selectedFile || isAnalysisLoading} style={{ width: "100%", padding: "16px", backgroundColor: (selectedFile && !isAnalysisLoading) ? "#4C9A8E" : "#cbd5e1", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: (selectedFile && !isAnalysisLoading) ? "pointer" : "not-allowed", fontSize: "16px", transition: "all 0.2s" }}>
+        <button onClick={handleGoogleVisionAnalysis} disabled={!selectedFile || isAnalysisLoading} 
+        style={{ width: "100%", padding: "16px", backgroundColor: (selectedFile && !isAnalysisLoading) ? "#4C9A8E" : "#cbd5e1", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: (selectedFile && !isAnalysisLoading) ? "pointer" : "not-allowed", fontSize: "16px", transition: "all 0.2s" }}>
           {isAnalysisLoading ? "⏳ 성분 분석 중..." : "분석 결과 보기"}
         </button>
       </div>
