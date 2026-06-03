@@ -119,15 +119,20 @@ export default function Survey({ navigate }) {
         );
 
         setStep(5);
+
       } else {
+
         alert(
           data.message ||
           "피부 타입 저장 실패"
         );
+
       }
 
     } catch (error) {
+
       console.error(error);
+
       alert(
         "서버와 연결할 수 없습니다."
       );
@@ -135,8 +140,11 @@ export default function Survey({ navigate }) {
   };
 
   const handlePrev = () => {
+
     if (step > 0 && step < 5) {
+
       setStep(step - 1);
+
       setAnswers(
         answers.slice(0, -1)
       );
