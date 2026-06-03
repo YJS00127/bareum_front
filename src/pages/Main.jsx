@@ -1,37 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom"; // 1. useNavigate 훅 가져오기
+import { useNavigate } from "react-router-dom";
 
-// 2. props에서 navigate 제거
 export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
-  
-  // 3. 내부에서 navigate 선언
   const navigate = useNavigate();
 
-  // 서브 페이지 관리: "MAIN_HOME", "ANALYZE_PAGE", "MY_INFO_PAGE"
   const [subPage, setSubPage] = useState("MAIN_HOME");
 
-  // 파일 상태 및 레퍼런스 (성분 분석용)
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  // 🔗 백엔드로부터 실시간 데이터 개수를 연동해 올 상자
   const [diaryRecords, setDiaryRecords] = useState([]);
   const [isDiaryLoading, setIsDiaryLoading] = useState(false);
 
-  // 성분 분석 결과
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
 
   const [productStatus, setProductStatus] = useState("");
   const [finalExplain, setFinalExplain] = useState("");
 
-  // 내 정보 관리용 비밀번호 수정 상태
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
-  // 🔌 [백엔드 통신 에러 방어]
   const [backendError, setBackendError] = useState(null);
 
-  // 🔗 [백엔드 다이어리 기록 동기화]
   useEffect(() => {
     const fetchDiaryCount = async () => {
       if (!currentUser || !currentUser.userId) return;
@@ -85,6 +75,7 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
+  // 🚀 [수정됨] 백엔드 연동 로직
   const handleGoogleVisionAnalysis = async () => {
     if (!selectedFile) {
       alert("먼저 성분표 사진을 첨부해 주세요!");
@@ -112,15 +103,10 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
       }
 
       const data = await response.json();
-      const extractedIngredients = data.ingredients || []; 
       
-      // analyzeIngredientsWithAI 함수가 정의되어 있어야 합니다.
-      const logisticResult = await analyzeIngredientsWithAI(currentUser?.skinType, extractedIngredients);
-
-      if (logisticResult) {
-        setProductStatus(logisticResult.totalAnalysis.toLowerCase());
-        setFinalExplain(data.finalExplain || "성분 분석이 완료되었습니다.");
-      }
+      // 백엔드에서 받아온 데이터로 상태 업데이트
+      setProductStatus(data.productStatus || "분석 완료");
+      setFinalExplain(data.finalExplain || "분석 결과를 불러올 수 없습니다.");
 
       alert("성분 분석이 완료되었습니다.");
     } catch (error) {
@@ -135,7 +121,7 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
   const handleLogout = () => {
     localStorage.removeItem("current_user");
     setCurrentUser(null);
-    navigate("/login"); // 경로 수정
+    navigate("/login");
   };
 
   const handleChangePassword = () => {
@@ -164,13 +150,10 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
       localStorage.removeItem("current_user");
       setCurrentUser(null);
       alert("회원 탈퇴가 완료되었습니다.");
-      navigate("/login"); // 경로 수정
+      navigate("/login");
     }
   };
 
-  // ==========================================
-  // 1. 메인 첫 화면 (MAIN_HOME)
-  // ==========================================
   const renderMainHome = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
@@ -202,8 +185,6 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-
-        {/* 다이어리 이동 버튼 수정 완료 */}
         <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("/diary")}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "12px" }}>
             <div style={{ fontSize: "32px", backgroundColor: "#f0fdf4", width: "60px", height: "60px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>📅</div>
@@ -239,7 +220,6 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
             </div>
           </div>
         </div>
-
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginTop: "44px", borderTop: "1px solid #f1f5f9", paddingTop: "20px" }}>
@@ -249,7 +229,6 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
     </div>
   );
 
-  // ... (이하 나머지 렌더 함수들과 return 문은 동일하게 유지)
   const renderAnalyzePage = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
