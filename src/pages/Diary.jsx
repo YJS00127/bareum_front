@@ -1,15 +1,14 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react"; // ✅ useEffect 추가
+import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 
-// ✅ Context API 적용 및 스타일 복구 버전
-export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
-
-  // ✅ 전역 유저 상태 가져오기
+export default function Diary({ diaryLogs, setDiaryLogs }) {
+  const navigate = useNavigate();
   const { currentUser, setCurrentUser } = useContext(UserContext);
 
-  // 현재 달력의 연도와 월 상태
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(6);
+  // 현재 날짜로 초기화
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
 
   // 선택 날짜 및 상세창 상태
   const [selectedDate, setSelectedDate] = useState("");
@@ -21,6 +20,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
   const [trouble, setTrouble] = useState(false);
   const [stress, setStress] = useState(1);
   const [rating, setRating] = useState(5);
+  const [memo, setMemo] = useState(""); 
   const [inputCosmetic, setInputCosmetic] = useState("");
 
   // 저장 중 상태
@@ -28,6 +28,37 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
 
   // 시그니처 컬러 정의
   const brandColor = "#4C9A8E";
+
+  // ✅ [추가] 다이어리 조회 (데이터 불러오기)
+  useEffect(() => {
+    const fetchDiaries = async () => {
+      if (!currentUser) return;
+      try {
+        const response = await fetch(`http://localhost:8080/api/auth/Diary?userId=${currentUser.userId}`);
+        const result = await response.json();
+
+        // 서버에서 받아온 데이터(배열)를 로컬 상태에 맞게 매핑
+        if (result && Array.isArray(result)) {
+          const loadedLogs = {};
+          result.forEach((item) => {
+            loadedLogs[item.date] = {
+              weather: item.weather,
+              cosmetics: item.productNames,
+              trouble: item.hasTrouble ? "있음" : "없음",
+              stress: item.stressScore,
+              rating: item.skinScore,
+              memo: item.memo,
+              diaryId: item.diaryId // 조회 시 받아온 고유 ID 저장
+            };
+          });
+          setDiaryLogs(loadedLogs);
+        }
+      } catch (error) {
+        console.error("다이어리 조회 실패:", error);
+      }
+    };
+    fetchDiaries();
+  }, [currentUser]);
 
   // 공통 스타일 정의
   const labelStyle = {
@@ -55,12 +86,14 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
       setTrouble(!!data.trouble);
       setStress(data.stress || 1);
       setRating(data.rating || 5);
+      setMemo(data.memo || ""); 
     } else {
       setWeather("맑음");
       setCosmetics([]);
       setTrouble("없음");
       setStress(1);
       setRating(5);
+      setMemo(""); 
     }
 
     setIsDetailOpen(true);
@@ -72,12 +105,9 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
       return alert("로그인이 필요합니다.");
     }
 
-    const logData = { weather, cosmetics, trouble, stress, rating };
-
     setIsSaving(true);
 
     try {
-      // ✅ 백엔드 저장
       const response = await fetch("http://localhost:8080/api/auth/Diary", {
         method: "POST",
         headers: {
@@ -86,7 +116,12 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
         body: JSON.stringify({
           userId: currentUser.userId,
           date: selectedDate,
-          record: logData,
+          skinScore: rating,
+          stressScore: stress,
+          hasTrouble: trouble === "있음",
+          weather: weather,
+          memo: memo,
+          productNames: cosmetics,
         }),
       });
 
@@ -103,17 +138,16 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
       setIsSaving(false);
     }
 
-    // ✅ 프론트 상태 저장
     const isAlreadySaved = !!diaryLogs[selectedDate];
 
+    // 로컬 상태 업데이트
     const updatedLogs = {
       ...diaryLogs,
-      [selectedDate]: logData,
+      [selectedDate]: { weather, cosmetics, trouble, stress, rating, memo },
     };
 
     setDiaryLogs(updatedLogs);
 
-    // ✅ 최초 작성이면 기록 수 증가
     if (!isAlreadySaved) {
       const updatedUser = {
         ...currentUser,
@@ -180,7 +214,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
             </h3>
 
             <button
-              onClick={() => navigate("MAIN")}
+              onClick={() => navigate("/main")}
               style={{
                 padding: "6px 14px", border: "1px solid #cbd5e1", background: "white",
                 borderRadius: "8px", cursor: "pointer", fontSize: "13px",
@@ -284,6 +318,18 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
               </select>
             </div>
 
+            {/* 오늘의 피부 메모 */}
+            <div>
+              <label style={labelStyle}>오늘의 피부 메모</label>
+              <input 
+                type="text" 
+                placeholder="간단한 메모를 입력하세요" 
+                value={memo} 
+                onChange={(e) => setMemo(e.target.value)} 
+                style={inputStyle} 
+              />
+            </div>
+
             {/* 사용한 화장품 추가 */}
             <div>
               <label style={labelStyle}>사용한 화장품</label>
@@ -337,7 +383,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
               )}
             </div>
 
-            {/* 트러블 여부 (라디오 스타일 데코) */}
+            {/* 트러블 여부 */}
             <div>
               <label style={labelStyle}>트러블 발생 여부</label>
               <div style={{ display: "flex", gap: "16px", padding: "4px 0" }}>
@@ -364,7 +410,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
               </div>
             </div>
 
-            {/* 스트레스 지수 (5개 선택형 버튼 형태로 복구) */}
+            {/* 스트레스 지수 */}
             <div>
               <label style={labelStyle}>스트레스 지수 (1-5)</label>
               <div style={{ display: "flex", gap: "8px" }}>
@@ -388,7 +434,7 @@ export default function Diary({ navigate, diaryLogs, setDiaryLogs }) {
               </div>
             </div>
 
-            {/* 피부 만족도 (5개 선택형 버튼 형태로 복구) */}
+            {/* 피부 만족도 */}
             <div>
               <label style={labelStyle}>종합 피부 만족도 (1-5)</label>
               <div style={{ display: "flex", gap: "8px" }}>
