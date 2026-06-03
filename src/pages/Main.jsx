@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom"; // 1. useNavigate 훅 가져오기
 
-export default function Main({ navigate, currentUser, setCurrentUser, users, setUsers }) {
+// 2. props에서 navigate 제거
+export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
+  
+  // 3. 내부에서 navigate 선언
+  const navigate = useNavigate();
+
   // 서브 페이지 관리: "MAIN_HOME", "ANALYZE_PAGE", "MY_INFO_PAGE"
   const [subPage, setSubPage] = useState("MAIN_HOME");
 
@@ -79,7 +85,6 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // 🌐 [AI 연동] 성분 분석
   const handleGoogleVisionAnalysis = async () => {
     if (!selectedFile) {
       alert("먼저 성분표 사진을 첨부해 주세요!");
@@ -91,7 +96,6 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
 
     try {
       const formData = new FormData();
-
       formData.append("userId", currentUser.userId);
       formData.append("image", selectedFile);
 
@@ -108,9 +112,15 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       }
 
       const data = await response.json();
+      const extractedIngredients = data.ingredients || []; 
+      
+      // analyzeIngredientsWithAI 함수가 정의되어 있어야 합니다.
+      const logisticResult = await analyzeIngredientsWithAI(currentUser?.skinType, extractedIngredients);
 
-      setProductStatus(data.productStatus || "");
-      setFinalExplain(data.finalExplain || "");
+      if (logisticResult) {
+        setProductStatus(logisticResult.totalAnalysis.toLowerCase());
+        setFinalExplain(data.finalExplain || "성분 분석이 완료되었습니다.");
+      }
 
       alert("성분 분석이 완료되었습니다.");
     } catch (error) {
@@ -125,7 +135,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   const handleLogout = () => {
     localStorage.removeItem("current_user");
     setCurrentUser(null);
-    navigate("LOGIN");
+    navigate("/login"); // 경로 수정
   };
 
   const handleChangePassword = () => {
@@ -154,7 +164,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
       localStorage.removeItem("current_user");
       setCurrentUser(null);
       alert("회원 탈퇴가 완료되었습니다.");
-      navigate("LOGIN");
+      navigate("/login"); // 경로 수정
     }
   };
 
@@ -164,7 +174,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   const renderMainHome = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
-        <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>🍀 bareum</h3>
+        <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>bareum</h3>
         <span
           onClick={() => setSubPage("MY_INFO_PAGE")}
           style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b", cursor: "pointer", textDecoration: "underline" }}
@@ -193,11 +203,12 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
 
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-        <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("DIARY")}>
+        {/* 다이어리 이동 버튼 수정 완료 */}
+        <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("/diary")}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "12px" }}>
             <div style={{ fontSize: "32px", backgroundColor: "#f0fdf4", width: "60px", height: "60px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>📅</div>
             <div>
-              <h3 style={{ margin: 0, fontSize: "19px", fontWeight: "700", color: "#1e293b" }}>매일 피부 다이어리</h3>
+              <h3 style={{ margin: 0, fontSize: "19px", fontWeight: "700", color: "#1e293b" }}>피부 다이어리</h3>
               <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748b", fontWeight: "500" }}>오늘의 유수분, 트러블, 화장품 기록하기</p>
             </div>
           </div>
@@ -219,7 +230,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           </div>
         </div>
 
-        <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("SURVEY")}>
+        <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("/survey")}>
           <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
             <div style={{ fontSize: "32px", backgroundColor: "#fff7ed", width: "60px", height: "60px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
             <div>
@@ -238,9 +249,7 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     </div>
   );
 
-  // ==========================================
-  // 2. 성분 분석 화면 (ANALYZE_PAGE)
-  // ==========================================
+  // ... (이하 나머지 렌더 함수들과 return 문은 동일하게 유지)
   const renderAnalyzePage = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
@@ -249,11 +258,9 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "12px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
         </span>
       </div>
-
       <div style={{ marginBottom: "32px" }}>
         <h4 style={{ margin: "0 0 16px 0", color: "#475569", fontSize: "15px", fontWeight: "600" }}>화장품 성분 스캔</h4>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} />
-
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", backgroundColor: "#f8fafc", padding: "14px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
           <button type="button" onClick={onAttachButtonClick} disabled={isAnalysisLoading} style={{ padding: "10px 16px", backgroundColor: "#4C9A8E", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", color: "white", cursor: "pointer" }}>
             📷 사진 첨부하기
@@ -262,20 +269,16 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
             {selectedFile ? selectedFile.name : "선택된 파일이 없습니다."}
           </span>
         </div>
-
-        <button onClick={handleGoogleVisionAnalysis} disabled={!selectedFile || isAnalysisLoading} 
-        style={{ width: "100%", padding: "16px", backgroundColor: (selectedFile && !isAnalysisLoading) ? "#4C9A8E" : "#cbd5e1", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: (selectedFile && !isAnalysisLoading) ? "pointer" : "not-allowed", fontSize: "16px", transition: "all 0.2s" }}>
+        <button onClick={handleGoogleVisionAnalysis} disabled={!selectedFile || isAnalysisLoading} style={{ width: "100%", padding: "16px", backgroundColor: (selectedFile && !isAnalysisLoading) ? "#4C9A8E" : "#cbd5e1", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: (selectedFile && !isAnalysisLoading) ? "pointer" : "not-allowed", fontSize: "16px", transition: "all 0.2s" }}>
           {isAnalysisLoading ? "⏳ 성분 분석 중..." : "분석 결과 보기"}
         </button>
       </div>
-
       {productStatus && (
         <div style={{ padding: "20px", borderRadius: "16px", marginBottom: "24px", border: "1px solid #e2e8f0", backgroundColor: productStatus === "normal" ? "#ecfdf5" : "#fef2f2" }}>
-          <h3 style={{ marginBottom: "10px" }}>분석 결과 : {productStatus}</h3>
-          <p style={{ margin: 0 }}>{finalExplain}</p>
+          <h3 style={{ marginBottom: "10px", textTransform: "uppercase" }}>분석 결과 : {productStatus}</h3>
+          <p style={{ margin: 0, lineHeight: "1.5" }}>{finalExplain}</p>
         </div>
       )}
-
       <div style={{ textAlign: "center", marginTop: "32px" }}>
         <button onClick={() => { setSelectedFile(null); setProductStatus(""); setFinalExplain(""); setSubPage("MAIN_HOME"); }}
           style={{ background: "none", border: "none", color: "#64748b", fontSize: "14px", fontWeight: "600", cursor: "pointer", textDecoration: "underline" }}>뒤로가기</button>
@@ -283,21 +286,16 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
     </div>
   );
 
-  // ==========================================
-  // 3. 내 정보 관리 화면 (MY_INFO_PAGE)
-  // ==========================================
   const renderMyInfoPage = () => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "20px" }}>👤 내 정보 관리</h3>
       </div>
-
       <div style={{ backgroundColor: "#f8fafc", padding: "20px", borderRadius: "14px", border: "1px solid #e2e8f0", marginBottom: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <div style={{ fontSize: "14px", color: "#475569" }}><b>아이디 :</b> {currentUser?.userId}</div>
         <div style={{ fontSize: "14px", color: "#475569" }}><b>닉네임 :</b> {currentUser?.nickname}</div>
         <div style={{ fontSize: "14px", color: "#475569" }}><b>결정된 피부 타입 :</b> <span style={{ color: "#4C9A8E", fontWeight: "bold" }}>{currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}</span></div>
       </div>
-
       <div style={{ border: "1px solid #e2e8f0", padding: "16px", borderRadius: "12px", marginBottom: "24px" }}>
         <h4 style={{ margin: "0 0 12px 0", color: "#334155", fontSize: "14px" }}>🔒 비밀번호 바꾸기</h4>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -306,14 +304,12 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
           <button onClick={handleChangePassword} style={{ padding: "10px", backgroundColor: "#4C9A8E", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", fontSize: "13px" }}> 비밀번호 수정 적용</button>
         </div>
       </div>
-
       <div style={{ border: "1px solid #fecaca", backgroundColor: "#fff5f5", padding: "16px", borderRadius: "12px", textAlign: "center" }}>
         <p style={{ margin: "0 0 10px 0", fontSize: "13px", color: "#991b1b" }}>더 이상 서비스를 사용하지 않으시나요?</p>
         <button onClick={handleWithdrawal} style={{ padding: "8px 16px", backgroundColor: "#ef4444", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}>
           🚨 계정 영구 탈퇴하기
         </button>
       </div>
-
       <div style={{ textAlign: "center", marginTop: "28px" }}>
         <button onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setSubPage("MAIN_HOME"); }} style={{ padding: "10px 20px", border: "1px solid #cbd5e1", background: "white", borderRadius: "10px", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}>
           메인 화면으로 복귀
@@ -325,54 +321,42 @@ export default function Main({ navigate, currentUser, setCurrentUser, users, set
   return (
     <div style={{ maxWidth: "1200px", margin: "40px auto", padding: "0 24px", boxSizing: "border-box" }}>
       <div style={{ display: "flex", gap: "32px", alignItems: "flex-start" }}>
-
-        {/* [왼쪽 본문 영역] */}
         <div style={{ flex: 2.2, backgroundColor: "#ffffff", padding: "28px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9" }}>
           {subPage === "MAIN_HOME" && renderMainHome()}
           {subPage === "ANALYZE_PAGE" && renderAnalyzePage()}
           {subPage === "MY_INFO_PAGE" && renderMyInfoPage()}
         </div>
-
-        {/* [우측 사이드바] */}
-<div style={{ flex: 1, backgroundColor: "#ffffff", padding: "28px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9", position: "sticky", top: "40px" }}>
-  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "16px" }}>
-    <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#e2f5f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>👤</div>
-    <div>
-      <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname || "사용자"} 님</h4>
-      <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>
-        {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
-      </span>
-    </div>
-  </div>
-
-  <h4 style={{ fontSize: "13.5px", color: "#94a3b8", fontWeight: "600", margin: "0 0 14px 0", letterSpacing: "0.5px" }}>LAB 피부 통계 리포트</h4>
-
-  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-    {/* 피부 타입 항목 유지 */}
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
-      <span style={{ fontSize: "14px", color: "#475569" }}>🟢 피부 타입</span>
-      <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f766e" }}>
-        {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
-      </span>
-    </div>
-
-    {/* [삭제됨] 성분 분석 횟수 항목을 제거하고 피부 기록 일차 항목을 바로 올렸습니다 */}
-
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
-      <span style={{ fontSize: "14px", color: "#475569" }}>🎨 피부 기록 일차</span>
-      <span style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
-        {isDiaryLoading ? "..." : `${diaryRecords ? diaryRecords.length : 0}일차`}
-      </span>
-    </div>
-  </div>
-
-  <div style={{ marginTop: "20px", backgroundColor: "#e2f5f1", padding: "14px", borderRadius: "12px", textAlign: "center" }}>
-    <p style={{ margin: 0, fontSize: "12px", color: "#0f766e", fontWeight: "600", lineHeight: "1.4", whiteSpace: "pre-wrap" }}>
-      {backendError ? "💡 서버 연결 대기 중입니다.\n기존 일지를 관리하세요!" : "💡 맞춤 데이터 기반으로\n화장품 성분을 분석 중입니다!"}
-    </p>
-  </div>
-</div>
-
+        <div style={{ flex: 1, backgroundColor: "#ffffff", padding: "28px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9", position: "sticky", top: "40px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "16px" }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#e2f5f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>👤</div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname || "사용자"} 님</h4>
+              <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>
+                {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
+              </span>
+            </div>
+          </div>
+          <h4 style={{ fontSize: "13.5px", color: "#94a3b8", fontWeight: "600", margin: "0 0 14px 0", letterSpacing: "0.5px" }}>LAB 피부 통계 리포트</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
+              <span style={{ fontSize: "14px", color: "#475569" }}>🟢 피부 타입</span>
+              <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f766e" }}>
+                {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
+              <span style={{ fontSize: "14px", color: "#475569" }}>🎨 피부 기록 일차</span>
+              <span style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
+                {isDiaryLoading ? "..." : `${diaryRecords ? diaryRecords.length : 0}일차`}
+              </span>
+            </div>
+          </div>
+          <div style={{ marginTop: "20px", backgroundColor: "#e2f5f1", padding: "14px", borderRadius: "12px", textAlign: "center" }}>
+            <p style={{ margin: 0, fontSize: "12px", color: "#0f766e", fontWeight: "600", lineHeight: "1.4", whiteSpace: "pre-wrap" }}>
+              {backendError ? "💡 서버 연결 대기 중입니다.\n기존 일지를 관리하세요!" : "💡 맞춤 데이터 기반으로\n화장품 성분을 분석 중입니다!"}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
