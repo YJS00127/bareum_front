@@ -1,15 +1,17 @@
 import React, { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 
-export default function Login({ navigate }) {
+export default function Login() {
+  const navigate = useNavigate();
   const { setCurrentUser } = useContext(UserContext);
 
-  const [userId, setUserId] = useState("");
+  // ✅ userId 대신 loginId로 상태 변경
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 일반 로그인 처리
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -17,33 +19,36 @@ export default function Login({ navigate }) {
     try {
       const response = await fetch("http://localhost:8080/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId,
-          password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        // ✅ 백엔드에 loginId와 password 전송
+        body: JSON.stringify({ loginId, password }),
       });
+
+      // 서버 연결 자체는 성공했으나, 아이디/비번이 틀린 경우 체크
+      if (!response.ok) {
+        alert("아이디 또는 비밀번호가 올바르지 않습니다.");
+        setIsLoading(false);
+        return;
+      }
 
       const data = await response.json();
 
       if (data.success) {
-        // Context 및 localStorage 저장
         setCurrentUser(data.user);
         localStorage.setItem("current_user", JSON.stringify(data.user));
 
-        // 페이지 이동
+        // 여기서 경로를 정확히 입력하세요
         if (!data.user.skinType) {
-          navigate("SURVEY");
+          navigate("/survey"); 
         } else {
-          navigate("MAIN");
+          navigate("/main");
         }
       } else {
-        alert(data.message || "아이디 또는 비밀번호가 올바르지 않습니다.");
+        alert(data.message || "로그인 실패");
       }
     } catch (error) {
-      alert("백엔드 서버와 연결할 수 없습니다.");
+      // 서버가 아예 꺼져있거나 통신 에러가 났을 때
+      alert("백엔드 서버와 연결할 수 없습니다. 서버 상태를 확인해주세요.");
     } finally {
       setIsLoading(false);
     }
@@ -51,115 +56,29 @@ export default function Login({ navigate }) {
 
   return (
     <div>
-      <h2
-        style={{
-          textAlign: "center",
-          color: "#4C9A8E",
-          marginBottom: "32px",
-          fontSize: "24px",
-          fontWeight: "700",
-        }}
-      >
-        로그인
-      </h2>
+      <h2 style={{ textAlign: "center", color: "#4C9A8E", marginBottom: "32px" }}>로그인</h2>
 
       {isLoading ? (
-        <div style={{ textAlign: "center", padding: "40px 0" }}>
-          <div style={{ fontSize: "32px", marginBottom: "16px" }}>🔄</div>
-          <p style={{ color: "#64748b", fontSize: "14px", fontWeight: "500" }}>
-            로그인 중...
-          </p>
-        </div>
+        <div style={{ textAlign: "center", padding: "40px 0" }}>🔄 로그인 중...</div>
       ) : (
         <>
-          {/* 일반 로그인 폼 */}
-          <form
-            onSubmit={handleLogin}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "14px",
-            }}
-          >
-            <input
-              type="text"
-              placeholder="아이디 입력"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              style={{
-                padding: "14px 16px",
-                borderRadius: "12px",
-                border: "1px solid #cbd5e1",
-                fontSize: "15px",
-                outline: "none",
-              }}
-              required
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {/* ✅ input의 value와 onChange도 loginId에 맞춰 변경 */}
+            <input 
+              type="text" placeholder="아이디 입력" value={loginId} 
+              onChange={(e) => setLoginId(e.target.value)} required
+              style={{ padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
             />
-
-            <div style={{ position: "relative" }}>
-              <input
-                type={showPw ? "text" : "password"}
-                placeholder="비밀번호"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "14px 16px",
-                  boxSizing: "border-box",
-                  borderRadius: "12px",
-                  border: "1px solid #cbd5e1",
-                  fontSize: "15px",
-                  outline: "none",
-                }}
-                required
-              />
-              <span
-                onClick={() => setShowPw(!showPw)}
-                style={{
-                  position: "absolute",
-                  right: "16px",
-                  top: "16px",
-                  cursor: "pointer",
-                  color: "#64748b",
-                  fontSize: "18px",
-                }}
-              >
-                {showPw ? "🙈" : "👁️"}
-              </span>
-            </div>
-
-            <button
-              type="submit"
-              style={{
-                backgroundColor: "#4C9A8E",
-                color: "white",
-                padding: "14px",
-                border: "none",
-                borderRadius: "12px",
-                cursor: "pointer",
-                fontWeight: "bold",
-                fontSize: "16px",
-                marginTop: "8px",
-              }}
-            >
-              로그인
-            </button>
+            <input 
+              type={showPw ? "text" : "password"} placeholder="비밀번호" value={password} 
+              onChange={(e) => setPassword(e.target.value)} required
+              style={{ padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
+            />
+            <button type="submit" style={{ backgroundColor: "#4C9A8E", color: "white", padding: "14px", borderRadius: "12px", cursor: "pointer" }}>로그인</button>
           </form>
 
-          {/* 회원가입 버튼 */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              marginTop: "20px",
-              fontSize: "13px",
-              color: "#64748b",
-            }}
-          >
-            <span
-              onClick={() => navigate("SIGNUP")}
-              style={{ cursor: "pointer" }}
-            >
+          <div style={{ textAlign: "center", marginTop: "20px" }}>
+            <span onClick={() => navigate("/signup")} style={{ cursor: "pointer", color: "#64748b" }}>
               회원가입
             </span>
           </div>
