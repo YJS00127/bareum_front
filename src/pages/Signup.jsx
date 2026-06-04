@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
+import eyeOpen from "../assets/eyeOpen.png";
+import eyeClose from "../assets/eyeClose.png";
 
 export default function Signup() {
   const navigate = useNavigate(); 
@@ -108,10 +110,14 @@ export default function Signup() {
             required
           />
           <span
-            onClick={() => setShowPw(!showPw)}
+            onClick={() => setShowPw(!showPw)} // 상태 토글
             style={{ position: "absolute", right: "12px", top: "14px", cursor: "pointer" }}
           >
-            {showPw ? "🙈" : "👁️"}
+            <img 
+              src={showPw ? eyeClose : eyeOpen} // 상태에 따른 이미지 변경
+              alt="toggle-password" 
+              style={{ width: "20px", height: "20px" }}
+            />
           </span>
         </div>
 
@@ -126,10 +132,14 @@ export default function Signup() {
             required
           />
           <span
-            onClick={() => setShowCheck(!showCheck)}
+            onClick={() => setShowCheck(!showCheck)} // 상태 토글
             style={{ position: "absolute", right: "12px", top: "14px", cursor: "pointer" }}
           >
-            {showCheck ? "🙈" : "👁️"}
+            <img 
+              src={showCheck ? eyeClose : eyeOpen} // 상태에 따른 이미지 변경
+              alt="toggle-password" 
+              style={{ width: "20px", height: "20px" }}
+            />
           </span>
         </div>
 

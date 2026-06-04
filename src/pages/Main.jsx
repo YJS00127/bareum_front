@@ -74,7 +74,6 @@ export default function Main({ users, setUsers }) {
       
       setProductStatus(data.productStatus || "분석 완료");
       setFinalExplain(data.finalExplain || "분석 결과를 불러올 수 없습니다.");
-
       
     } catch (error) {
       console.error(error);

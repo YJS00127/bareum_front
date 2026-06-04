@@ -1,6 +1,8 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
+import eyeOpen from "../assets/eyeOpen.png";
+import eyeClose from "../assets/eyeClose.png";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -69,11 +71,41 @@ export default function Login() {
               onChange={(e) => setLoginId(e.target.value)} required
               style={{ padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
             />
+            <div style={{ position: "relative" }}>
             <input 
-              type={showPw ? "text" : "password"} placeholder="비밀번호" value={password} 
-              onChange={(e) => setPassword(e.target.value)} required
-              style={{ padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1" }}
-            />
+              type={showPw ? "text" : "password"} 
+              placeholder="비밀번호" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required
+              style={{ 
+              width: "100%", // input이 부모 div에 꽉 차게
+              padding: "14px", 
+              boxSizing: "border-box", // 패딩 포함 크기 조절
+              borderRadius: "12px", 
+              border: "1px solid #cbd5e1" 
+              }}
+              />
+              {/* 아이콘 버튼 */}
+              <span
+              onClick={() => setShowPw(!showPw)}
+              style={{ 
+              position: "absolute", 
+              right: "14px", 
+              top: "14px", 
+              cursor: "pointer",
+              display: "flex",
+               alignItems: "center"
+            }}
+            >
+    <img 
+      src={showPw ? eyeClose : eyeOpen} 
+      alt="toggle-password" 
+              style={{ width: "20px", height: "20px" }} 
+              />
+            </span>
+          </div>
+            
             <button type="submit" style={{ backgroundColor: "#4C9A8E", color: "white", padding: "14px", borderRadius: "12px", cursor: "pointer" }}>로그인</button>
           </form>
 
