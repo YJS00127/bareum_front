@@ -91,7 +91,7 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
       formData.append("image", selectedFile);
 
       const response = await fetch(
-        "http://localhost:8080/api/analysis",
+        "http://localhost:8080/api/ingredient/analyze",
         {
           method: "POST",
           body: formData

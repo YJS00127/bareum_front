@@ -34,7 +34,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
     const fetchDiaries = async () => {
       if (!currentUser) return;
       try {
-        const response = await fetch(`http://localhost:8080/api/auth/Diary?userId=${currentUser.userId}`);
+        const response = await fetch(`http://localhost:8080/api/diary?userId=${currentUser.userId}`);
         const result = await response.json();
 
         // 서버에서 받아온 데이터(배열)를 로컬 상태에 맞게 매핑

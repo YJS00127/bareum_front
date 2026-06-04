@@ -35,7 +35,7 @@ export default function Signup() {
     }
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const response = await fetch("http://localhost:8080/api/users/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -53,7 +53,7 @@ export default function Signup() {
 
       // 회원가입 성공
       if (data.success) {
-        alert("🎉 회원가입 성공!");
+        alert(data.message);
         navigate("/login");
       } else {
         // 회원가입 실패

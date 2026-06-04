@@ -89,14 +89,13 @@ export default function Survey({ navigate }) {
     try {
 
       const response = await fetch(
-        "http://localhost:8080/api/auth/survey",
+        "http://localhost:8080/api/users/${currentUser.userId}/skin-type",
         {
-          method: "PUT",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            userId: currentUser.userId,
             skinType: calculatedType, // 백엔드로 "건성", "지성", "복합성" 중 하나가 날아갑니다.
           }),
         }

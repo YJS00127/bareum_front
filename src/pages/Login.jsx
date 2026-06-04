@@ -17,7 +17,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/login", {
+      const response = await fetch("http://localhost:8080/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // ✅ 백엔드에 loginId와 password 전송
@@ -35,7 +35,7 @@ export default function Login() {
 
       if (data.success) {
         setCurrentUser(data.user);
-        localStorage.setItem("current_user", JSON.stringify(data.user));
+        localStorage.setItem("current_user", JSON.stringify(data.user));  
 
         // 여기서 경로를 정확히 입력하세요
         if (!data.user.skinType) {
