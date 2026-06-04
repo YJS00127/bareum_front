@@ -1,8 +1,10 @@
 import React, { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom"; // ✨ [수정] 리액트 라우터 매니저 장착
 import { UserContext } from "../context/UserContext";
 
-export default function Survey({ navigate }) {
+export default function Survey() { // ✨ [수정] Props로 받던 navigate 제거
 
+  const navigate = useNavigate(); // ✨ [수정] 페이지 이동 함수 정상 선언
   const { currentUser, setCurrentUser } = useContext(UserContext);
 
   const [step, setStep] = useState(0);
@@ -69,9 +71,9 @@ export default function Survey({ navigate }) {
     });
 
     // -------------------------------------------------------------
-    // ✨ [수정 구간] '중성' 제거 및 백엔드 호환용 [건성, 지성, 복합성] 매칭 로직
+    // ✨ '중성' 제거 및 백엔드 호환용 [건성, 지성, 복합성] 매칭 로직
     // -------------------------------------------------------------
-    let calculatedType = "복합성"; // 기본값 세팅 (점수가 완전히 동점일 때를 대비한 예외 처리)
+    let calculatedType = "복합성"; 
 
     if (counts[0] > counts[1] && counts[0] > counts[2]) {
       calculatedType = "건성";
@@ -80,7 +82,6 @@ export default function Survey({ navigate }) {
       calculatedType = "지성";
     } 
     else {
-      // 2번 선택지(복합성)가 가장 많거나, 모든 점수가 똑같이 비기는 경우 '복합성'으로 결정
       calculatedType = "복합성";
     }
 
@@ -89,14 +90,14 @@ export default function Survey({ navigate }) {
     try {
 
       const response = await fetch(
-        "http://localhost:8080/api/users/${currentUser.userId}/skin-type",
+        `http://localhost:8080/api/users/${currentUser.userId}/skin-type`,
         {
-          method: "PATCH",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            skinType: calculatedType, // 백엔드로 "건성", "지성", "복합성" 중 하나가 날아갑니다.
+            skinType: calculatedType, 
           }),
         }
       );
@@ -329,7 +330,7 @@ export default function Survey({ navigate }) {
       </div>
 
       <button
-        onClick={() => navigate("MAIN")}
+        onClick={() => navigate("/main")} // ✨ [수정] 대문자 "MAIN"에서 라우터 경로 규격인 "/main"으로 매칭
         style={{
           width: "100%",
           padding: "18px",
