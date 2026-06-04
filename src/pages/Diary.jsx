@@ -14,14 +14,12 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
   const [selectedDate, setSelectedDate] = useState("");
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // 폼 상태
+  // 폼 상태 (✨ 사용한 화장품 관련 state 2개 제거)
   const [weather, setWeather] = useState("맑음");
-  const [cosmetics, setCosmetics] = useState([]);
-  const [trouble, setTrouble] = useState(false);
+  const [trouble, setTrouble] = useState("없음");
   const [stress, setStress] = useState(1);
   const [rating, setRating] = useState(5);
   const [memo, setMemo] = useState(""); 
-  const [inputCosmetic, setInputCosmetic] = useState("");
 
   // 저장 중 상태
   const [isSaving, setIsSaving] = useState(false);
@@ -29,12 +27,12 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
   // 시그니처 컬러 정의
   const brandColor = "#4C9A8E";
 
-  // ✅ [추가] 다이어리 조회 (데이터 불러오기)
+  // ✅ 다이어리 조회 (데이터 불러오기)
   useEffect(() => {
     const fetchDiaries = async () => {
       if (!currentUser) return;
       try {
-        const response = await fetch(`http://localhost:8080/api/diary?userId=${currentUser.userId}`);
+        const response = await fetch(`http://localhost:8080/api/diaries/${currentUser.userId}`);
         const result = await response.json();
 
         // 서버에서 받아온 데이터(배열)를 로컬 상태에 맞게 매핑
@@ -43,7 +41,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
           result.forEach((item) => {
             loadedLogs[item.date] = {
               weather: item.weather,
-              cosmetics: item.productNames,
+              // ✨ cosmetics 항목 매핑 제외
               trouble: item.hasTrouble ? "있음" : "없음",
               stress: item.stressScore,
               rating: item.skinScore,
@@ -58,7 +56,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
       }
     };
     fetchDiaries();
-  }, [currentUser]);
+  }, [currentUser, setDiaryLogs]);
 
   // 공통 스타일 정의
   const labelStyle = {
@@ -82,14 +80,13 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
       const data = diaryLogs[formattedDate];
 
       setWeather(data.weather || "맑음");
-      setCosmetics(data.cosmetics || []);
-      setTrouble(!!data.trouble);
+      // ✨ !!data.trouble 대신 문자열을 그대로 넣어 라디오 버튼 깨짐 버그를 해결합니다.
+      setTrouble(data.trouble || "없음");
       setStress(data.stress || 1);
       setRating(data.rating || 5);
       setMemo(data.memo || ""); 
     } else {
       setWeather("맑음");
-      setCosmetics([]);
       setTrouble("없음");
       setStress(1);
       setRating(5);
@@ -106,9 +103,11 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
     }
 
     setIsSaving(true);
+    let isSuccess = false; // 백엔드 성공 여부 플래그
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/Diary", {
+      // ✨ 주소 수정: 조회(GET) 주소 기반인 /api/diary 경로로 변경을 유도합니다. (백엔드 세팅에 맞춰 필요시 조정 가능)
+      const response = await fetch("http://localhost:8080/api/diaries", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -121,29 +120,39 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
           hasTrouble: trouble === "있음",
           weather: weather,
           memo: memo,
-          productNames: cosmetics,
+          // ✨ productNames 항목 완전히 제외
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message);
-      }
+      // if (!response.ok || !data.success) {
+      //   throw new Error(data.message || "서버 저장 처리에 실패했습니다.");
+      // }
+
+      if (!response.ok) { 
+  throw new Error("서버 응답 오류");
+}
 
       console.log("백엔드 저장 성공");
+      isSuccess = true; // 서버 저장 성공 시에만 true 플래그 달아줌
     } catch (error) {
-      console.log("백엔드 저장 실패 → 로컬 저장 유지");
+      console.error("백엔드 저장 실패:", error);
+      // 🚨 유저에게 에러 메시지를 명확히 경고창으로 표시합니다.
+      alert(`⚠️ DB 저장 실패: ${error.message}\n백엔드 서버 상태나 매핑 URL 주소를 확인해보세요!`);
     } finally {
       setIsSaving(false);
     }
 
+    // 🚨 백엔드 DB 저장에 실패했다면 이후 로컬 저장 단계를 실행하지 않고 중단시킵니다.
+    if (!isSuccess) return;
+
     const isAlreadySaved = !!diaryLogs[selectedDate];
 
-    // 로컬 상태 업데이트
+    // 로컬 상태 업데이트 (✨ 데이터에서 cosmetics 제외)
     const updatedLogs = {
       ...diaryLogs,
-      [selectedDate]: { weather, cosmetics, trouble, stress, rating, memo },
+      [selectedDate]: { weather, trouble, stress, rating, memo },
     };
 
     setDiaryLogs(updatedLogs);
@@ -162,7 +171,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
       );
     }
 
-    alert("일지가 저장되었습니다.");
+    alert("오늘의 일지가 성공적으로 저장되었습니다! 🎉");
     setIsDetailOpen(false);
   };
 
@@ -205,11 +214,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
               marginBottom: "20px",
             }}
           >
-            <h3
-              style={{
-                margin: 0, color: brandColor, fontSize: "18px", fontWeight: "700",
-              }}
-            >
+            <h3 style={{ margin: 0, color: brandColor, fontSize: "18px", fontWeight: "700" }}>
               📅 피부 기록 달력
             </h3>
 
@@ -330,58 +335,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
               />
             </div>
 
-            {/* 사용한 화장품 추가 */}
-            <div>
-              <label style={labelStyle}>사용한 화장품</label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <input
-                  type="text"
-                  placeholder="화장품명을 입력하세요"
-                  value={inputCosmetic}
-                  onChange={(e) => setInputCosmetic(e.target.value)}
-                  style={inputStyle}
-                />
-                <button
-                  onClick={() => {
-                    if (!inputCosmetic.trim()) return;
-                    setCosmetics([...cosmetics, inputCosmetic.trim()]);
-                    setInputCosmetic("");
-                  }}
-                  style={{
-                    padding: "0 16px", backgroundColor: brandColor, color: "white",
-                    border: "none", borderRadius: "8px", cursor: "pointer",
-                    fontWeight: "600", fontSize: "14px", whiteSpace: "nowrap"
-                  }}
-                >
-                  추가
-                </button>
-              </div>
-
-              {/* 화장품 태그 리스트 */}
-              {cosmetics.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "12px", padding: "10px", backgroundColor: "#f1f5f9", borderRadius: "8px" }}>
-                  {cosmetics.map((item, index) => (
-                    <span
-                      key={index}
-                      style={{
-                        padding: "4px 10px", backgroundColor: "#e2f5f1", color: brandColor,
-                        borderRadius: "20px", fontSize: "13px", fontWeight: "500",
-                        display: "inline-flex", alignItems: "center", gap: "6px",
-                        border: `1px solid #cdc`
-                      }}
-                    >
-                      {item}
-                      <b
-                        onClick={() => setCosmetics(cosmetics.filter((_, idx) => idx !== index))}
-                        style={{ cursor: "pointer", color: "#ef4444", fontSize: "14px" }}
-                      >
-                        ✕
-                      </b>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* ✨ [삭제 완료] 사용한 화장품 추가 입력 필드 및 태그 리스트 컴포넌트 제거 */}
 
             {/* 트러블 여부 */}
             <div>
@@ -419,6 +373,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
                   return (
                     <button
                       key={v}
+                      type="button"
                       onClick={() => setStress(v)}
                       style={{
                         flex: 1, padding: "10px 0", backgroundColor: isSelected ? brandColor : "white",
@@ -443,6 +398,7 @@ export default function Diary({ diaryLogs, setDiaryLogs }) {
                   return (
                     <button
                       key={v}
+                      type="button"
                       onClick={() => setRating(v)}
                       style={{
                         flex: 1, padding: "10px 0", backgroundColor: isSelected ? brandColor : "white",

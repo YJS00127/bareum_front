@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { UserContext } from "../context/UserContext";
 
-export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
+export default function Main({ users, setUsers }) {
   const navigate = useNavigate();
 
-  const [subPage, setSubPage] = useState("MAIN_HOME");
+  // 전역 전용 데이터 창고(Context)에서 로그인 유저 정보 로드
+  const { currentUser, setCurrentUser } = useContext(UserContext);
 
+  const [subPage, setSubPage] = useState("MAIN_HOME");
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
-
-  const [diaryRecords, setDiaryRecords] = useState([]);
-  const [isDiaryLoading, setIsDiaryLoading] = useState(false);
 
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
 
@@ -21,46 +21,6 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const [backendError, setBackendError] = useState(null);
-
-  useEffect(() => {
-    const fetchDiaryCount = async () => {
-      if (!currentUser || !currentUser.userId) return;
-
-      setIsDiaryLoading(true);
-      setBackendError(null);
-
-      try {
-        const response = await fetch(`http://localhost:8080/api/auth/Main?userId=${encodeURIComponent(currentUser.userId)}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`서버 응답 오류 (Status: ${response.status})`);
-        }
-
-        const data = await response.json();
-        if (data && data.success) {
-          setDiaryRecords(Array.isArray(data.records) ? data.records : []);
-        } else {
-          console.warn("백엔드 반환 실패:", data.message);
-        }
-      } catch (error) {
-        console.error("다이어리 데이터를 가져오는 데 실패했습니다:", error);
-        setBackendError(error.message);
-
-        if (currentUser && Array.isArray(currentUser.records)) {
-          setDiaryRecords(currentUser.records);
-        }
-      } finally {
-        setIsDiaryLoading(false);
-      }
-    };
-
-    fetchDiaryCount();
-  }, [currentUser, subPage]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -75,7 +35,6 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // 🚀 [수정됨] 백엔드 연동 로직
   const handleGoogleVisionAnalysis = async () => {
     if (!selectedFile) {
       alert("먼저 성분표 사진을 첨부해 주세요!");
@@ -104,7 +63,6 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
 
       const data = await response.json();
       
-      // 백엔드에서 받아온 데이터로 상태 업데이트
       setProductStatus(data.productStatus || "분석 완료");
       setFinalExplain(data.finalExplain || "분석 결과를 불러올 수 없습니다.");
 
@@ -158,11 +116,9 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>bareum</h3>
-        <span
-          onClick={() => setSubPage("MY_INFO_PAGE")}
-          style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b", cursor: "pointer", textDecoration: "underline" }}
-        >
-          {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "13px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
+        {/* ✨ [수정] 클릭 이벤트(onClick)와 밑줄(textDecoration)을 지워 일반 텍스트로 변경했습니다. */}
+        <span style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b" }}>
+          {currentUser?.nickname}님 <span style={{ color: "#4C9A8E", fontSize: "13px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
         </span>
       </div>
 
@@ -174,7 +130,7 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
 
       <div style={{ backgroundColor: "#f8fafc", padding: "28px", borderRadius: "24px", border: "1px solid #e2e8f0", marginBottom: "32px" }}>
         <h2 style={{ margin: "0 0 16px 0", fontSize: "26px", fontWeight: "800", color: "#1e293b" }}>
-          {currentUser?.nickname || "사용자"}님의 피부 연구소
+          {currentUser?.nickname}님의 피부 연구소
         </h2>
         <div style={{ backgroundColor: "#e2f5f1", border: "2px solid #4C9A8E", padding: "16px 20px", borderRadius: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "#0f766e", fontSize: "15px", fontWeight: "700" }}>진단된 피부 타입</span>
@@ -186,18 +142,12 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ backgroundColor: "white", border: "2px solid #e2e8f0", borderRadius: "20px", padding: "24px", cursor: "pointer" }} onClick={() => navigate("/diary")}>
-          <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
             <div style={{ fontSize: "32px", backgroundColor: "#f0fdf4", width: "60px", height: "60px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>📅</div>
             <div>
               <h3 style={{ margin: 0, fontSize: "19px", fontWeight: "700", color: "#1e293b" }}>피부 다이어리</h3>
               <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748b", fontWeight: "500" }}>오늘의 유수분, 트러블, 화장품 기록하기</p>
             </div>
-          </div>
-          <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "14px", marginTop: "14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "#475569" }}>
-            <span>작성된 총 다이어리 수</span>
-            <span style={{ fontWeight: "700", color: "#4C9A8E", fontSize: "16px" }}>
-              {isDiaryLoading ? "로딩 중..." : `${diaryRecords ? diaryRecords.length : 0}개`}
-            </span>
           </div>
         </div>
 
@@ -234,7 +184,7 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "20px", fontWeight: "700" }}>🧪 성분 분석하기</h3>
         <span style={{ fontSize: "14px", fontWeight: "bold", color: "#1e293b" }}>
-          {currentUser?.nickname || "사용자"}님 <span style={{ color: "#4C9A8E", fontSize: "12px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
+          {currentUser?.nickname}님 <span style={{ color: "#4C9A8E", fontSize: "12px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
         </span>
       </div>
       <div style={{ marginBottom: "32px" }}>
@@ -271,9 +221,9 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "20px" }}>👤 내 정보 관리</h3>
       </div>
       <div style={{ backgroundColor: "#f8fafc", padding: "20px", borderRadius: "14px", border: "1px solid #e2e8f0", marginBottom: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-        <div style={{ fontSize: "14px", color: "#475569" }}><b>아이디 :</b> {currentUser?.userId}</div>
+        <div style={{ fontSize: "14px", color: "#475569" }}><b>아이디 :</b> {currentUser?.loginId}</div>
         <div style={{ fontSize: "14px", color: "#475569" }}><b>닉네임 :</b> {currentUser?.nickname}</div>
-        <div style={{ fontSize: "14px", color: "#475569" }}><b>결정된 피부 타입 :</b> <span style={{ color: "#4C9A8E", fontWeight: "bold" }}>{currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}</span></div>
+        <div style={{ fontSize: "14px", color: "#475569" }}><b>결정된 피부 타입 :</b> <span style={{ color: "#4C9A8E", fontWeight: "bold" }}>{currentUser?.skinType ? `${currentUser.skinType}` : "설문 전"}</span></div>
       </div>
       <div style={{ border: "1px solid #e2e8f0", padding: "16px", borderRadius: "12px", marginBottom: "24px" }}>
         <h4 style={{ margin: "0 0 12px 0", color: "#334155", fontSize: "14px" }}>🔒 비밀번호 바꾸기</h4>
@@ -309,7 +259,7 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "16px" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#e2f5f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>👤</div>
             <div>
-              <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname || "사용자"} 님</h4>
+              <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#1e293b" }}>{currentUser?.nickname} 님</h4>
               <span style={{ fontSize: "12px", color: "#4C9A8E", fontWeight: "600" }}>
                 {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
               </span>
@@ -323,18 +273,8 @@ export default function Main({ currentUser, setCurrentUser, users, setUsers }) {
                 {currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "12px" }}>
-              <span style={{ fontSize: "14px", color: "#475569" }}>🎨 피부 기록 일차</span>
-              <span style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
-                {isDiaryLoading ? "..." : `${diaryRecords ? diaryRecords.length : 0}일차`}
-              </span>
-            </div>
           </div>
-          <div style={{ marginTop: "20px", backgroundColor: "#e2f5f1", padding: "14px", borderRadius: "12px", textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: "12px", color: "#0f766e", fontWeight: "600", lineHeight: "1.4", whiteSpace: "pre-wrap" }}>
-              {backendError ? "💡 서버 연결 대기 중입니다.\n기존 일지를 관리하세요!" : "💡 맞춤 데이터 기반으로\n화장품 성분을 분석 중입니다!"}
-            </p>
-          </div>
+          {/* ✨ [수정] 우측 사이드바 최하단의 '맞춤 데이터 기반 분석 중' 안내 박스를 통째로 삭제했습니다. */}
         </div>
       </div>
     </div>
