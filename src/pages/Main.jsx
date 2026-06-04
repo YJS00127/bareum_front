@@ -49,8 +49,17 @@ export default function Main({ users, setUsers }) {
       formData.append("userId", currentUser.userId);
       formData.append("image", selectedFile);
 
+      const getProductStatusText = (status) => {
+  switch (status) {
+    case "CAUTION": return "주의 필요";
+    case "NORMAL": return "보통";
+    case "GOOD": return "적합";
+    default: return "분석 완료"; // 기본값
+  }
+};
+
       const response = await fetch(
-        "http://localhost:8080/api/ingredient/analyze",
+        "http://localhost:8080/api/ingredients/analyze",
         {
           method: "POST",
           body: formData
@@ -66,7 +75,7 @@ export default function Main({ users, setUsers }) {
       setProductStatus(data.productStatus || "분석 완료");
       setFinalExplain(data.finalExplain || "분석 결과를 불러올 수 없습니다.");
 
-      alert("성분 분석이 완료되었습니다.");
+      
     } catch (error) {
       console.error(error);
       setBackendError(error.message);
@@ -83,50 +92,61 @@ export default function Main({ users, setUsers }) {
   };
 
   const handleChangePassword = async () => {
-    if (!newPassword || !confirmNewPassword) return alert("비밀번호를 입력해주세요.");
-    if (newPassword !== confirmNewPassword) return alert("비밀번호가 일치하지 않습니다.");
+    if (newPassword !== confirmNewPassword) return alert("새 비밀번호가 일치하지 않습니다.");
 
     try {
-      const response = await fetch("http://localhost:8080/api/users/update-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          newPassword: newPassword 
-        }),
-      });
+        // 2. 백엔드 UserController에 맞춘 요청
+        const response = await fetch(`http://localhost:8080/api/users/${currentUser.userId}/password`, {
+            method: "PATCH", // 🚨 UserController가 PATCH를 요구함
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
 
-      if (response.ok) {
-        alert("비밀번호가 변경되었습니다.");
-      } else {
-        alert("비밀번호 변경 실패");
-      }
+                newPassword: newPassword 
+            }),
+        });
+
+        if (response.ok) {
+            alert("비밀번호가 변경되었습니다!");
+        } else {
+            const errorData = await response.json();
+            alert("변경 실패: " + (errorData.message || "비밀번호를 확인하세요."));
+        }
     } catch (error) {
-      console.error(error);
+        alert("서버 연결에 실패했습니다.");
     }
-  };
+};
 
   const handleWithdrawal = async () => {
-    if (!window.confirm("정말로 탈퇴하시겠습니까?")) return;
+    const password = prompt("계정을 탈퇴하려면 비밀번호를 입력해주세요.");
+    
+    // 0. 값 확인
+    if (!password) return; // 취소했거나 빈 값이면 중단
 
     try {
-      const response = await fetch(`http://localhost:8080/api/users/delete/${currentUser.userId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: "사용자입력비밀번호" }) // 탈퇴 시에도 비밀번호 확인 필요
-      });
+        const response = await fetch(`http://localhost:8080/api/users/${currentUser.userId}`, {
+            method: "DELETE",
+            headers: { 
+                "Content-Type": "application/json" 
+            },
+            // 백엔드 DeleteAccountRequest와 필드명 일치시키기 (password)
+            body: JSON.stringify({ 
+                password: password 
+            })
+        });
 
-      if (response.ok) {
-        localStorage.removeItem("current_user");
-        setCurrentUser(null);
-        navigate("/login");
-        alert("탈퇴가 완료되었습니다.");
-      } else {
-        alert("탈퇴 실패");
-      }
+        if (response.ok) {
+            alert("회원 탈퇴가 완료되었습니다.");
+            localStorage.removeItem("current_user");
+            setCurrentUser(null);
+            navigate("/login");
+        } else {
+            alert("탈퇴 실패: 비밀번호를 다시 확인하세요.");
+        }
     } catch (error) {
-      console.error(error);
+        console.error(error);
+        alert("서버 오류가 발생했습니다.");
     }
-  };
+};
 
   const renderMainHome = () => (
     <div>
