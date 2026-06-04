@@ -82,33 +82,49 @@ export default function Main({ users, setUsers }) {
     navigate("/login");
   };
 
-  const handleChangePassword = () => {
-    if (!newPassword || !confirmNewPassword) return alert("변경할 비밀번호를 모두 입력해주세요.");
-    if (newPassword.length < 8) return alert("비밀번호는 8자리 이상이어야 합니다.");
-    if (newPassword !== confirmNewPassword) return alert("새 비밀번호가 서로 일치하지 않습니다.");
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmNewPassword) return alert("비밀번호를 입력해주세요.");
+    if (newPassword !== confirmNewPassword) return alert("비밀번호가 일치하지 않습니다.");
 
-    const updatedUser = { ...currentUser, password: newPassword };
-    setCurrentUser(updatedUser);
-    if (Array.isArray(users)) {
-      setUsers(users.map(u => u.email === currentUser.email ? updatedUser : u));
+    try {
+      const response = await fetch("http://localhost:8080/api/users/update-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          newPassword: newPassword 
+        }),
+      });
+
+      if (response.ok) {
+        alert("비밀번호가 변경되었습니다.");
+      } else {
+        alert("비밀번호 변경 실패");
+      }
+    } catch (error) {
+      console.error(error);
     }
-
-    alert("비밀번호가 안전하게 변경되었습니다!");
-    setNewPassword("");
-    setConfirmNewPassword("");
   };
 
-  const handleWithdrawal = () => {
-    const confirmWithdrawal = window.confirm("정말로 탈퇴하시겠습니까?");
-    if (confirmWithdrawal) {
-      if (Array.isArray(users)) {
-        const updatedUsers = users.filter((u) => u.email !== currentUser.email);
-        setUsers(updatedUsers);
+  const handleWithdrawal = async () => {
+    if (!window.confirm("정말로 탈퇴하시겠습니까?")) return;
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/users/delete/${currentUser.userId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "사용자입력비밀번호" }) // 탈퇴 시에도 비밀번호 확인 필요
+      });
+
+      if (response.ok) {
+        localStorage.removeItem("current_user");
+        setCurrentUser(null);
+        navigate("/login");
+        alert("탈퇴가 완료되었습니다.");
+      } else {
+        alert("탈퇴 실패");
       }
-      localStorage.removeItem("current_user");
-      setCurrentUser(null);
-      alert("회원 탈퇴가 완료되었습니다.");
-      navigate("/login");
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -116,10 +132,6 @@ export default function Main({ users, setUsers }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #4C9A8E", paddingBottom: "14px", marginBottom: "28px" }}>
         <h3 style={{ margin: 0, color: "#4C9A8E", fontSize: "22px", fontWeight: "800" }}>bareum</h3>
-        {/* ✨ [수정] 클릭 이벤트(onClick)와 밑줄(textDecoration)을 지워 일반 텍스트로 변경했습니다. */}
-        <span style={{ fontSize: "15px", fontWeight: "bold", color: "#1e293b" }}>
-          {currentUser?.nickname}님 <span style={{ color: "#4C9A8E", fontSize: "13px" }}>({currentUser?.skinType ? `${currentUser.skinType} 피부` : "설문 전"})</span>
-        </span>
       </div>
 
       {backendError && (
